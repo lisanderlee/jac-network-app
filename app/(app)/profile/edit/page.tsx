@@ -54,7 +54,11 @@ export default async function ProfileEditPage() {
           Update how you appear in the member directory. Comma-separated lists become tags for search.
         </p>
       </div>
-      <ProfileEditForm initialUsername={profile.username} defaultValues={defaultValues} />
+      <ProfileEditForm
+        userId={session.user.id}
+        initialUsername={profile.username}
+        defaultValues={defaultValues}
+      />
     </div>
   )
 }

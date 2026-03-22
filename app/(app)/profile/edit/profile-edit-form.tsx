@@ -7,6 +7,7 @@ import { useState } from "react"
 import { useForm } from "react-hook-form"
 
 import { updateProfile } from "@/app/(app)/profile/edit/actions"
+import { AvatarUpload } from "@/components/profile/avatar-upload"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -22,9 +23,11 @@ const disciplines = ["creative", "strategy", "technology", "production", "market
 const workTypes = ["freelance", "full-time", "consulting", "advisory"] as const
 
 export function ProfileEditForm({
+  userId,
   initialUsername,
   defaultValues,
 }: {
+  userId: string
   initialUsername: string
   defaultValues: ProfileEditInput
 }) {
@@ -114,13 +117,17 @@ export function ProfileEditForm({
         ) : null}
       </div>
 
-      <div className="grid gap-2">
-        <Label htmlFor="avatar_url">Avatar URL</Label>
-        <Input id="avatar_url" type="url" placeholder="https://…" {...form.register("avatar_url")} />
-        {form.formState.errors.avatar_url ? (
-          <p className="text-destructive text-sm">{form.formState.errors.avatar_url.message}</p>
-        ) : null}
-      </div>
+      <AvatarUpload
+        userId={userId}
+        value={form.watch("avatar_url") ?? ""}
+        onUrlChange={(url) =>
+          form.setValue("avatar_url", url, { shouldDirty: true, shouldValidate: true })
+        }
+        disabled={form.formState.isSubmitting}
+      />
+      {form.formState.errors.avatar_url ? (
+        <p className="text-destructive text-sm">{form.formState.errors.avatar_url.message}</p>
+      ) : null}
 
       <div className="grid gap-2 sm:grid-cols-2">
         <div className="grid gap-2">
