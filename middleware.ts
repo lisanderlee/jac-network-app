@@ -50,6 +50,10 @@ export async function middleware(request: NextRequest) {
 
   const { pathname } = request.nextUrl
 
+  if (pathname.startsWith("/api/cron")) {
+    return NextResponse.next()
+  }
+
   if (isPublicPath(pathname)) {
     if (user && pathname.startsWith("/invite")) {
       const { data: profile } = await supabase

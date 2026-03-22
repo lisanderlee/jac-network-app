@@ -1,13 +1,13 @@
 "use client"
 
 import { useRouter } from "next/navigation"
-import { useEffect, useMemo, useState } from "react"
+import { useEffect, useState } from "react"
 
 import { completeInviteProfile } from "@/app/(public)/invite/[token]/actions"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { createBrowserSupabaseClient } from "@/lib/supabase/client"
+import { useBrowserSupabaseClient } from "@/lib/supabase/client"
 
 type InvitePreview = {
   full_name: string
@@ -24,7 +24,7 @@ export function InviteClient({
   application: InvitePreview
 }) {
   const router = useRouter()
-  const supabase = useMemo(() => createBrowserSupabaseClient(), [])
+  const supabase = useBrowserSupabaseClient()
   const [step, setStep] = useState<"account" | "profile">("account")
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
@@ -36,6 +36,7 @@ export function InviteClient({
   const [headline, setHeadline] = useState(application.headline)
 
   useEffect(() => {
+    if (!supabase) return
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (session?.user) {
         setStep("profile")
@@ -52,6 +53,10 @@ export function InviteClient({
     }
     if (password !== confirm) {
       setError("Passwords do not match.")
+      return
+    }
+    if (!supabase) {
+      setError("Still loading. Try again in a moment.")
       return
     }
 
@@ -134,7 +139,7 @@ export function InviteClient({
           />
         </div>
 
-        <Button type="submit" disabled={loading}>
+        <Button type="submit" disabled={loading || !supabase}>
           {loading ? "Creating account…" : "Continue"}
         </Button>
       </form>
@@ -179,7 +184,7 @@ export function InviteClient({
 
       <p className="text-muted-foreground text-xs capitalize">Discipline: {application.discipline}</p>
 
-      <Button type="submit" disabled={loading}>
+      <Button type="submit" disabled={loading || !supabase}>
         {loading ? "Saving…" : "Finish and go to directory"}
       </Button>
     </form>

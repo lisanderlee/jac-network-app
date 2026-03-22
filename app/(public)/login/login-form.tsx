@@ -2,16 +2,16 @@
 
 import Link from "next/link"
 import { useRouter } from "next/navigation"
-import { useMemo, useState } from "react"
+import { useState } from "react"
 
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { createBrowserSupabaseClient } from "@/lib/supabase/client"
+import { useBrowserSupabaseClient } from "@/lib/supabase/client"
 
 export function LoginForm() {
   const router = useRouter()
-  const supabase = useMemo(() => createBrowserSupabaseClient(), [])
+  const supabase = useBrowserSupabaseClient()
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [error, setError] = useState<string | null>(null)
@@ -20,6 +20,10 @@ export function LoginForm() {
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault()
     setError(null)
+    if (!supabase) {
+      setError("Still loading. Try again in a moment.")
+      return
+    }
     setLoading(true)
 
     const { error: signError } = await supabase.auth.signInWithPassword({
@@ -95,7 +99,7 @@ export function LoginForm() {
         />
       </div>
 
-      <Button type="submit" disabled={loading}>
+      <Button type="submit" disabled={loading || !supabase}>
         {loading ? "Signing in…" : "Log in"}
       </Button>
 

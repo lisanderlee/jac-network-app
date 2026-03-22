@@ -36,3 +36,37 @@ export interface DirectoryFilters {
   tools: string[]
   location: string | null
 }
+
+export type OpportunityType = "job" | "project" | "collab" | "event"
+
+export type OpportunityLocationType = "remote" | "hybrid" | "on-site"
+
+export type OpportunityEngagement = "full-time" | "part-time" | "one-off" | "ongoing"
+
+export interface Opportunity {
+  id: string
+  posted_by: string
+  title: string
+  type: string
+  description: string
+  skills_needed: string[] | null
+  location_type: string | null
+  location: string | null
+  compensation: string | null
+  engagement: string | null
+  deadline: string | null
+  is_active: boolean
+  created_at: string
+  updated_at: string
+}
+
+export interface OpportunityWithPoster extends Opportunity {
+  poster_username: string | null
+  poster_full_name: string | null
+}
+
+export interface OpportunityFilters {
+  type: OpportunityType | null
+  skills: string[]
+  location_type: OpportunityLocationType | null
+}
