@@ -25,21 +25,39 @@ create table public.profiles (
 
   role         text not null default 'member' check (role in ('member', 'admin')),
 
-  search_vector tsvector generated always as (
-    to_tsvector('english',
-      coalesce(full_name, '') || ' ' ||
-      coalesce(headline, '') || ' ' ||
-      coalesce(bio, '') || ' ' ||
-      coalesce(array_to_string(skills, ' '), '') || ' ' ||
-      coalesce(array_to_string(tools, ' '), '') || ' ' ||
-      coalesce(array_to_string(industries, ' '), '')
-    )
-  ) stored,
+  -- Maintained by trigger: generated columns cannot use to_tsvector/array_to_string (not IMMUTABLE).
+  search_vector tsvector not null,
 
   is_featured  boolean default false,
   member_since timestamptz default now(),
   updated_at   timestamptz default now()
 );
+
+create or replace function public.profiles_set_search_vector()
+returns trigger
+language plpgsql
+set search_path = public
+as $$
+begin
+  new.search_vector :=
+    to_tsvector(
+      'english',
+      coalesce(new.full_name, '') || ' ' ||
+      coalesce(new.headline, '') || ' ' ||
+      coalesce(new.bio, '') || ' ' ||
+      coalesce(array_to_string(new.skills, ' '), '') || ' ' ||
+      coalesce(array_to_string(new.tools, ' '), '') || ' ' ||
+      coalesce(array_to_string(new.industries, ' '), '')
+    );
+  return new;
+end;
+$$;
+
+create trigger profiles_set_search_vector
+  before insert or update of full_name, headline, bio, skills, tools, industries
+  on public.profiles
+  for each row
+  execute function public.profiles_set_search_vector();
 
 create index profiles_search_idx on public.profiles using gin(search_vector);
 create index profiles_discipline_idx on public.profiles(discipline);
