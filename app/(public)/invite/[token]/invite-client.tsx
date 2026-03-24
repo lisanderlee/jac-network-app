@@ -25,7 +25,7 @@ export function InviteClient({
 }) {
   const router = useRouter()
   const supabase = useBrowserSupabaseClient()
-  const [step, setStep] = useState<"account" | "profile">("account")
+  const [step, setStep] = useState<"account" | "email_confirm" | "profile">("account")
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
 
@@ -64,7 +64,7 @@ export function InviteClient({
     const origin = window.location.origin
     const callbackUrl = `${origin}/auth/callback?next=${encodeURIComponent(`/invite/${token}`)}`
 
-    const { error: signError } = await supabase.auth.signUp({
+    const { data: signData, error: signError } = await supabase.auth.signUp({
       email: application.email,
       password,
       options: {
@@ -78,6 +78,15 @@ export function InviteClient({
       return
     }
 
+    // If Supabase has "Confirm email" on, there is no session until they click the link — do not
+    // show the profile form yet (server actions read auth from cookies and would fail).
+    if (!signData.session) {
+      setStep("email_confirm")
+      router.refresh()
+      return
+    }
+
+    await supabase.auth.refreshSession()
     setStep("profile")
     router.refresh()
   }
@@ -85,7 +94,32 @@ export function InviteClient({
   async function onCompleteProfile(e: React.FormEvent) {
     e.preventDefault()
     setError(null)
+    if (!supabase) {
+      setError("Still loading. Try again in a moment.")
+      return
+    }
     setLoading(true)
+
+    await supabase.auth.refreshSession()
+    const {
+      data: { session },
+      error: sessionError,
+    } = await supabase.auth.getSession()
+
+    if (sessionError) {
+      setLoading(false)
+      setError(sessionError.message)
+      return
+    }
+
+    if (!session?.user) {
+      setLoading(false)
+      setError(
+        "You are not signed in yet. If your project requires email confirmation, open the link in your inbox first, then return here. If you already confirmed, refresh the page."
+      )
+      return
+    }
+
     const result = await completeInviteProfile(token, {
       username: username.trim(),
       full_name: fullName.trim(),
@@ -149,6 +183,47 @@ export function InviteClient({
           {loading ? "Creating account…" : "Continue"}
         </Button>
       </form>
+    )
+  }
+
+  if (step === "email_confirm") {
+    return (
+      <div className="mx-auto flex max-w-md flex-col gap-6">
+        <div>
+          <h2 className="text-lg font-semibold">Confirm your email</h2>
+          <p className="text-muted-foreground mt-1 text-sm">
+            We sent a confirmation link to <span className="text-foreground font-medium">{application.email}</span>.
+            Click it to verify your address — you&apos;ll be brought back here. Then you can finish your profile.
+          </p>
+        </div>
+        {error ? (
+          <p className="text-destructive text-sm" role="alert">
+            {error}
+          </p>
+        ) : null}
+        <Button
+          type="button"
+          disabled={!supabase}
+          onClick={() => {
+            if (!supabase) return
+            setError(null)
+            void supabase.auth.getSession().then(({ data: { session } }) => {
+              if (session?.user) {
+                setStep("profile")
+                router.refresh()
+              } else {
+                setError("No session yet. Open the confirmation link in your email, then try again.")
+              }
+            })
+          }}
+        >
+          I&apos;ve confirmed my email — continue
+        </Button>
+        <p className="text-muted-foreground text-xs">
+          Tip: In Supabase → Authentication → Providers → Email, you can turn off &quot;Confirm email&quot; for
+          development so you can continue immediately after setting a password.
+        </p>
+      </div>
     )
   }
 
