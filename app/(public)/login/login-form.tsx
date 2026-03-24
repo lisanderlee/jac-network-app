@@ -47,17 +47,23 @@ export function LoginForm() {
       return
     }
 
-    const { data: profile } = await supabase
+    const { data: profile, error: profileError } = await supabase
       .from("profiles")
       .select("id")
       .eq("id", user.id)
       .maybeSingle()
 
+    if (profileError) {
+      setLoading(false)
+      setError(`Could not verify your membership: ${profileError.message}`)
+      return
+    }
+
     if (!profile) {
       await supabase.auth.signOut()
       setLoading(false)
       setError(
-        "Your account exists, but there is no member profile yet. Ask an admin to add you in the profiles table (or use your invite link from email after they approve your application)."
+        "Your login worked, but there is no member profile on this account yet. That usually means you did not finish onboarding from your invite email. Open the invite link you were sent, create your password, and complete the profile step. If you never received an invite, apply at the link below — an admin must approve you first."
       )
       return
     }

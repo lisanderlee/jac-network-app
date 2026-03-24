@@ -61,9 +61,15 @@ export function InviteClient({
     }
 
     setLoading(true)
+    const origin = window.location.origin
+    const callbackUrl = `${origin}/auth/callback?next=${encodeURIComponent(`/invite/${token}`)}`
+
     const { error: signError } = await supabase.auth.signUp({
       email: application.email,
       password,
+      options: {
+        emailRedirectTo: callbackUrl,
+      },
     })
     setLoading(false)
 
