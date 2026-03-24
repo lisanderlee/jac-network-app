@@ -12,6 +12,22 @@ export async function approveAndInvite(applicationId: string): Promise<ActionRes
     const { userId } = await assertAdmin()
     const admin = createAdminClient()
 
+    const from = process.env.RESEND_FROM_EMAIL
+    if (!process.env.RESEND_API_KEY?.trim()) {
+      return {
+        success: false,
+        error:
+          "Invite email is not configured: set RESEND_API_KEY in your deployment environment (Vercel → Settings → Environment Variables).",
+      }
+    }
+    if (!from?.trim()) {
+      return {
+        success: false,
+        error:
+          "Invite email is not configured: set RESEND_FROM_EMAIL to a verified sender in Resend (e.g. onboarding@yourdomain.com).",
+      }
+    }
+
     const token = randomBytes(32).toString("hex")
     const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000)
 
@@ -34,10 +50,11 @@ export async function approveAndInvite(applicationId: string): Promise<ActionRes
       return { success: false, error: error?.message ?? "Could not update application" }
     }
 
-    const from = process.env.RESEND_FROM_EMAIL
-    if (process.env.RESEND_API_KEY && from) {
-      const inviteUrl = `${getAppOrigin()}/invite/${token}`
-      await resend.emails.send({
+    const inviteUrl = `${getAppOrigin()}/invite/${token}`
+
+    let sendError: { message: string } | null = null
+    try {
+      const { error: err } = await resend.emails.send({
         from,
         to: application.email,
         subject: "Your invitation to JAC Network",
@@ -46,6 +63,28 @@ export async function approveAndInvite(applicationId: string): Promise<ActionRes
           inviteUrl,
         }),
       })
+      if (err) sendError = err
+    } catch (e) {
+      sendError = { message: e instanceof Error ? e.message : "Unknown email error" }
+    }
+
+    if (sendError) {
+      await admin
+        .from("applications")
+        .update({
+          status: "pending",
+          reviewed_by: null,
+          reviewed_at: null,
+          invite_token: null,
+          invite_sent_at: null,
+          invite_expires_at: null,
+        })
+        .eq("id", applicationId)
+
+      return {
+        success: false,
+        error: `Invite email failed: ${sendError.message}. Application was left as pending so you can try again after fixing Resend (domain verification, API key, or recipient rules).`,
+      }
     }
 
     return { success: true, data: null }
